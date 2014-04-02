@@ -1,5 +1,25 @@
 #!/bin/sh
 
+usage() {
+    local exit_code
+    local output
+    [ -n $1 ] && exit_code=$1
+    if [ -n "$exit_code" ] && [ "$exit_code" != "0" ]; then
+        output=2
+    else
+        output=1
+    fi
+    echo "Usage: `basename $0` <yocto directory>" >&$output
+    [ -n "$exit_code" ] && exit $exit_code
+}
+
+
+[ -z "$1" ] && usage 1
+
+if [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ]; then
+    usage 0
+fi
+
 REPO=$1
 
 TMP=`mktemp`
