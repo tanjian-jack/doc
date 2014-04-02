@@ -7,5 +7,4 @@ Fsl-community-bsp supports the mainline barebox version |barebox_mainline_versio
 The following table shows the barebox version and provider for all
 supported boards.
 
-.. include:: barebox-mainline.inc
-
+.. include:: ../../scripts/extracted-data/barebox-mainline.inc

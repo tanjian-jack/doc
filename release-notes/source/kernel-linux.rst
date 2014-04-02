@@ -13,16 +13,7 @@ Linux Kernel
 
 Fsl-community-bsp supports the following sources for Linux Kernel:
 
-* **linux-imx**: Linux Kernel provided and supported by Freescale
-* **linux-fslc**: Linux Kernel mainline with backported fixes (kernel.org)
-* **linux-boundary**:
-* **linux-cfa**: Linux Kernel mainline 3.10 with added drivers
-* **linux-denx**:
-* **linux-timesys**: Linux Kernel version 3.0.15 with added drivers and board
-  support for Vybrid-based platforms.
-* **linux-wandboard**:
-* **linux-cubox-i**: Boundary Devices Kernel 3.0.35 supported by SolidRun
-  with additional machine specific patches
+.. include:: ../../scripts/extracted-data/fsl_community_bsp_supported_kernels.inc
 
 -----------------------
 Default Linux Providers
@@ -31,7 +22,7 @@ Default Linux Providers
 The following table shows the default version of Linux Kernel provided by
 FSL Community BSP for each supported machine.
 
-.. include:: linux-default.inc
+.. include:: ../../scripts/extracted-data/linux-default.inc
 
 
 -----------

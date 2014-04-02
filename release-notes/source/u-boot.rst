@@ -34,7 +34,7 @@ Default u-boot
 The following table shows the default u-boot version and provider for all
 supported boards.
 
-.. include:: u-boot-default.inc
+.. include:: ../../scripts/extracted-data/u-boot-default.inc
 
 ------------
 u-boot-imx
