@@ -57,7 +57,7 @@ def write_tabular(file, header, body):
 def write_table_by_recipe(file, recipe, header, data):
     body = []
     for board in data.keys():
-        recipe_data = data[board][recipe]
+        recipe_data = data[board]['recipes'][recipe]
         body += [[board, recipe_data['recipe'], recipe_data['version']]]
     write_tabular(file, header, body)
 
@@ -74,7 +74,7 @@ def write_u_boot_table(data, out_dir):
                           data)
 
 def write_barebox_table(data, out_dir):
-    boards = filter(lambda board: data[board].has_key('barebox'), data.keys())
+    boards = filter(lambda board: data[board]['recipes'].has_key('barebox'), data.keys())
     boards_data = {}
     for board in boards:
         boards_data[board] = data[board]
@@ -87,7 +87,7 @@ def write_fsl_community_bsp_supported_kernels(data, out_dir):
     kernels = []
     kernel_recipes = [] # just to keep track of recipes already collected
     for board, board_data in data.items():
-        kernel = board_data['virtual/kernel']
+        kernel = board_data['recipes']['virtual/kernel']
         recipe = kernel['recipe']
         if (kernel['layer'] in ['meta-fsl-arm', 'meta-fsl-arm-extra']) and \
             recipe not in kernel_recipes:

@@ -212,6 +212,7 @@ for user_recipe in user_recipes:
                 description = env.getVar('SUMMARY', True)
             if not data.has_key(machine):
                 data[machine] = {}
-            data[machine][user_recipe] = format_machine_data(recipe, description)
+                data[machine]['recipes'] = {}
+            data[machine]['recipes'][user_recipe] = format_machine_data(recipe, description)
 
 dump_data(data, data_file)
