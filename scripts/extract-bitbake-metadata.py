@@ -172,12 +172,13 @@ def dump_data(data, data_file):
     pickle.dump(data, fd)
     fd.close()
 
-def format_machine_data(recipe, description):
+def format_machine_data(recipe, description, compatible_machine):
     return {'recipe': recipe.name,
             'file': recipe.file,
             'version': recipe.version,
             'description': description,
-            'layer': recipe.layer}
+            'layer': recipe.layer,
+            'compatible-machine': compatible_machine}
 
 def usage(exit_code=False):
     print 'Usage: %s <recipe name> ...' % os.path.basename(sys.argv[0])
@@ -213,6 +214,8 @@ for user_recipe in user_recipes:
             if not data.has_key(machine):
                 data[machine] = {}
                 data[machine]['recipes'] = {}
-            data[machine]['recipes'][user_recipe] = format_machine_data(recipe, description)
+                data[machine]['soc-family'] = env.getVar('SOC_FAMILY', True)
+            compatible_machine = env.getVar('COMPATIBLE_MACHINE')
+            data[machine]['recipes'][user_recipe] = format_machine_data(recipe, description, compatible_machine)
 
 dump_data(data, data_file)
