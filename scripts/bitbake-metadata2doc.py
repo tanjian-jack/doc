@@ -69,7 +69,7 @@ def write_linux_table(data, out_dir):
 
 def write_u_boot_table(data, out_dir):
     write_table_by_recipe('u-boot-default.inc',
-                          'virtual/kernel',
+                          'virtual/bootloader',
                           ['Board', 'U-Boot Provider', 'U-Boot Version'],
                           data)
 
