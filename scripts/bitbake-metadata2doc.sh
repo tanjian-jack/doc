@@ -64,7 +64,8 @@ for machine in $machines; do
         barebox \
         gstreamer \
         libdrm \
-        udev xserver-xorg \
+        udev \
+        xserver-xorg \
         firmware-imx \
         fsl-alsa-plugins \
         gpu-viv-bin-mx6q \
