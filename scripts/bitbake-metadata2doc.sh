@@ -60,6 +60,7 @@ for machine in $machines; do
         $anchor/doc-data.pckl \
         virtual/kernel \
         virtual/bootloader \
+        amd-gpu-x11-bin-mx51 \
         barebox \
         gstreamer \
         libdrm \
@@ -72,10 +73,13 @@ for machine in $machines; do
         imx-kobs \
         imx-lib \
         imx-test \
+        imx-vpu \
         libfslcodec \
         libfslparser \
         libfslvpuwrap \
+        libz160 \
         xf86-dri-vivante \
+        xf86-video-imxfb \
         xf86-video-imxfb-vivante
 done
 
