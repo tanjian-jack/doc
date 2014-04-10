@@ -215,7 +215,7 @@ for user_recipe in user_recipes:
                 data[machine] = {}
                 data[machine]['recipes'] = {}
                 data[machine]['soc-family'] = env.getVar('SOC_FAMILY', True)
-            compatible_machine = env.getVar('COMPATIBLE_MACHINE')
+            compatible_machine = env.getVar('COMPATIBLE_MACHINE', True)
             data[machine]['recipes'][user_recipe] = format_machine_data(recipe, description, compatible_machine)
 
 dump_data(data, data_file)
