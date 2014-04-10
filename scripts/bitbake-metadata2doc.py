@@ -55,32 +55,34 @@ def is_compatible_machine(soc_family, compatible_machine_re):
             return True
     return False
 
-def write_inc_file(file, text):
+def write_inc_file(out_dir, file, text):
     out_file = os.path.join(out_dir, file)
     info('Writing %s' % out_file)
     out_fd = open(out_file, 'w')
     out_fd.write(text)
     out_fd.close()
 
-def write_tabular(file, header, body):
+def write_tabular(out_dir, file, header, body):
     table = [header] + body
-    write_inc_file(file, tabularize([header] + body))
+    write_inc_file(out_dir, file, tabularize([header] + body))
 
-def write_table_by_recipe(file, recipe, header, data):
+def write_table_by_recipe(out_dir, file, recipe, header, data):
     body = []
     for board in data.keys():
         recipe_data = data[board]['recipes'][recipe]
         body += [[board, recipe_data['recipe'], recipe_data['version']]]
-    write_tabular(file, header, body)
+    write_tabular(out_dir, file, header, body)
 
 def write_linux_table(data, out_dir):
-    write_table_by_recipe('linux-default.inc',
+    write_table_by_recipe(out_dir,
+                          'linux-default.inc',
                           'virtual/kernel',
                           ['Board', 'Kernel Provider', 'Kernel Version'],
                           data)
 
 def write_u_boot_table(data, out_dir):
-    write_table_by_recipe('u-boot-default.inc',
+    write_table_by_recipe(out_dir,
+                          'u-boot-default.inc',
                           'virtual/bootloader',
                           ['Board', 'U-Boot Provider', 'U-Boot Version'],
                           data)
@@ -90,7 +92,8 @@ def write_barebox_table(data, out_dir):
     boards_data = {}
     for board in boards:
         boards_data[board] = data[board]
-    write_table_by_recipe('barebox-mainline.inc',
+    write_table_by_recipe(out_dir,
+                          'barebox-mainline.inc',
                           'barebox',
                           ['Board', 'Barebox Provider', 'Barebox Version'],
                           boards_data)
@@ -105,7 +108,7 @@ def write_fsl_community_bsp_supported_kernels(data, out_dir):
             recipe not in kernel_recipes:
             kernels += [[recipe, kernel['description']]]
             kernel_recipes.append(recipe)
-    write_inc_file('fsl_community_bsp_supported_kernels.inc', describe(kernels))
+    write_inc_file(out_dir, 'fsl_community_bsp_supported_kernels.inc', describe(kernels))
 
 def usage(exit_code=None):
     print 'Usage: %s <data file> <output dir>' % (os.path.basename(sys.argv[0]),)
