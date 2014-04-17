@@ -92,14 +92,14 @@ def write_table_by_recipe(out_dir, file, recipe, header, data):
         body += [[board, recipe_data['recipe'], recipe_data['version']]]
     write_tabular(out_dir, file, header, body)
 
-def write_linux_table(data, out_dir):
+def write_linux_default(data, out_dir):
     write_table_by_recipe(out_dir,
                           'linux-default.inc',
                           'virtual/kernel',
                           ['Board', 'Kernel Provider', 'Kernel Version'],
                           data)
 
-def write_u_boot_table(data, out_dir):
+def write_u_boot_default(data, out_dir):
     ## Pick only boards whose bootloader is U-Boot
     uboot_data = {}
     for board, board_data in data.items():
@@ -113,7 +113,7 @@ def write_u_boot_table(data, out_dir):
                           ['Board', 'U-Boot Provider', 'U-Boot Version'],
                           uboot_data)
 
-def write_barebox_table(data, out_dir):
+def write_barebox_mainline(data, out_dir):
     boards = filter(lambda board: data[board]['recipes'].has_key('barebox') and \
                                   (data[board]['image-bootloader'] == 'barebox' or \
                                    data[board]['recipes']['virtual/bootloader']['recipe'] == 'barebox'),
@@ -289,6 +289,7 @@ def write_soc_pkg(data, out_dir):
                   body)
 
 
+
 def usage(exit_code=None):
     print 'Usage: %s <data file> <output dir>' % (os.path.basename(sys.argv[0]),)
     if exit_code:
@@ -317,9 +318,9 @@ except:
     else:
         pass # if a directory already exists, it's ok
 
-write_linux_table(data, out_dir)
-write_u_boot_table(data, out_dir)
-write_barebox_table(data, out_dir)
+write_linux_default(data, out_dir)
+write_u_boot_default(data, out_dir)
+write_barebox_mainline(data, out_dir)
 write_fsl_community_bsp_supported_kernels(data, out_dir)
 write_userspace_pkg(data, out_dir)
 write_soc_pkg(data, out_dir)
