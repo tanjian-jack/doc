@@ -276,7 +276,7 @@ def write_soc_pkg(data, out_dir):
             new_versions = []
             for v in versions:
                 if v == -1:
-                    new_versions.append('-')
+                    new_versions.append('--')
                 else:
                     new_versions.append(format_version(v))
             return new_versions
