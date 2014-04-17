@@ -89,7 +89,11 @@ def write_table_by_recipe(out_dir, file, recipe, header, data):
     body = []
     for board in data.keys():
         recipe_data = data[board]['recipes'][recipe]
-        body += [[board, recipe_data['recipe'], recipe_data['version']]]
+        version = recipe_data['version']
+        srcbranch = recipe_data['srcbranch']
+        if srcbranch:
+            version += '_' + srcbranch
+        body += [[board, recipe_data['recipe'], version]]
     write_tabular(out_dir, file, header, body)
 
 def write_linux_default(data, out_dir):
