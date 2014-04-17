@@ -172,13 +172,14 @@ def dump_data(data, data_file):
     pickle.dump(data, fd)
     fd.close()
 
-def format_machine_data(recipe, description, compatible_machine):
+def format_machine_data(recipe, description, compatible_machine, srcbranch):
     return {'recipe': recipe.name,
             'file': recipe.file,
             'version': recipe.version,
             'description': description,
             'layer': recipe.layer,
-            'compatible-machine': compatible_machine}
+            'compatible-machine': compatible_machine,
+            'srcbranch': srcbranch}
 
 def usage(exit_code=False):
     print 'Usage: %s <recipe name> ...' % os.path.basename(sys.argv[0])
@@ -209,6 +210,7 @@ for user_recipe in user_recipes:
         if recipe_name and recipe_name == recipe.name:
             env = recipe_environment(bbhandler, recipe.file)
             description = env.getVar('DESCRIPTION', True)
+            srcbranch = env.getVar('SRCBRANCH', True)
             if not description:
                 description = env.getVar('SUMMARY', True)
             if not data.has_key(machine):
@@ -217,6 +219,6 @@ for user_recipe in user_recipes:
                 data[machine]['soc-family'] = env.getVar('SOC_FAMILY', True)
                 data[machine]['image-bootloader'] = env.getVar('IMAGE_BOOTLOADER', True)
             compatible_machine = env.getVar('COMPATIBLE_MACHINE', True)
-            data[machine]['recipes'][user_recipe] = format_machine_data(recipe, description, compatible_machine)
+            data[machine]['recipes'][user_recipe] = format_machine_data(recipe, description, compatible_machine, srcbranch)
 
 dump_data(data, data_file)
