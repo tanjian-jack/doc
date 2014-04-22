@@ -154,7 +154,16 @@ def recipe_environment(bbhandler, buildfile):
     return envdata
 
 
-def get_preferred_provider(bbhandler, virtual):
+def get_preferred_provider(bbhandler, virtual, machine, soc_family):
+    socs = []
+    if soc_family:
+        socs = list(reversed(soc_family.split(':')))
+    ## Check preferred provider for machine/soc specifics, taking into
+    ## account precedence
+    for specific in [machine] + socs:
+        pref_provider = bbhandler.config_data.getVar('PREFERRED_PROVIDER_%s_%s' % (virtual, specific), True)
+        if pref_provider:
+            return pref_provider
     return bbhandler.config_data.getVar('PREFERRED_PROVIDER_%s' % (virtual,), True)
 
 
@@ -198,15 +207,16 @@ bbhandler = bb.tinfoil.Tinfoil()
 bbhandler.prepare()
 available_recipes = list_recipes(bbhandler)
 machine = bbhandler.config_data.getVar('MACHINE', True)
+soc_family = bbhandler.config_data.getVar('SOC_FAMILY', True)
 data = load_data(data_file)
 
 for user_recipe in user_recipes:
+    recipe_name = None
+    if '/' in user_recipe:
+        recipe_name = get_preferred_provider(bbhandler, user_recipe, machine, soc_family)
+    else:
+        recipe_name = user_recipe
     for recipe in available_recipes:
-        recipe_name = None
-        if '/' in user_recipe:
-            recipe_name = get_preferred_provider(bbhandler, user_recipe)
-        else:
-            recipe_name = user_recipe
         if recipe_name and recipe_name == recipe.name:
             env = recipe_environment(bbhandler, recipe.file)
             description = env.getVar('DESCRIPTION', True)
@@ -216,7 +226,7 @@ for user_recipe in user_recipes:
             if not data.has_key(machine):
                 data[machine] = {}
                 data[machine]['recipes'] = {}
-                data[machine]['soc-family'] = env.getVar('SOC_FAMILY', True)
+                data[machine]['soc-family'] = soc_family
                 data[machine]['image-bootloader'] = env.getVar('IMAGE_BOOTLOADER', True)
             compatible_machine = env.getVar('COMPATIBLE_MACHINE', True)
             data[machine]['recipes'][user_recipe] = format_machine_data(recipe, description, compatible_machine, srcbranch)
