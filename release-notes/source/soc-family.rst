@@ -19,7 +19,6 @@ The current SOC_FAMILY tree can be see in the next graph:
   ├── mx6
   │   ├── mx6dl
   │   ├── mx6q
-  │   ├── mx6s
   │   └── mx6sl
   ├── mxs
   │   ├── mx23
