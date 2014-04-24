@@ -131,20 +131,6 @@ def write_bootloader_default(data, out_dir):
                   ['Board', 'Bootloader', 'Bootloader version'],
                   body)
 
-def write_u_boot_default(data, out_dir):
-    ## Pick only boards whose bootloader is U-Boot
-    uboot_data = {}
-    for board, board_data in data.items():
-        ## The default IMAGE_BOOTLOADER is u-boot, as set by image_types_fsl.bbclass
-        if not board_data['image-bootloader'] or \
-           board_data['image-bootloader'] == 'u-boot':
-            uboot_data[board] = board_data
-    write_table_by_recipe(out_dir,
-                          'u-boot-default.inc',
-                          'virtual/bootloader',
-                          ['Board', 'U-Boot Provider', 'U-Boot Version'],
-                          uboot_data)
-
 def write_barebox_mainline(data, out_dir):
     boards = filter(lambda board: data[board]['recipes'].has_key('barebox') and \
                                   (data[board]['image-bootloader'] == 'barebox' or \
