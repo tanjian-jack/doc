@@ -1,6 +1,6 @@
-=========================  ==================================================  ====================  ==========
-         Machine             Name                                                      SoC             Layer
-=========================  ==================================================  ====================  ==========
+=========================  ==================================================  ====================  ====================
+         Machine             Name                                                      SoC                  Layer
+=========================  ==================================================  ====================  ====================
 cfa10036                   Crystalfontz CFA-10036                              i.MX28                meta-fsl-arm-extra
 cfa10037                   Crystalfontz CFA-10037                              i.MX28                meta-fsl-arm-extra
 cfa10049                   Crystalfontz CFA-10049                              i.MX28                meta-fsl-arm-extra
@@ -40,4 +40,4 @@ twr-vf65gs10               Freescale Vybrid TWR-VF65GS10                       v
 wandboard-dual             Wandboard i.MX6 Wandboard Duallite                  i.MX6DL               meta-fsl-arm-extra
 wandboard-quad             Wandboard i.MX6 Wandboard Quad                      i.MX6Q                meta-fsl-arm-extra
 wandboard-solo             Wandboard i.MX6 Wandboard Solo                      i.MX6S                meta-fsl-arm-extra
-=========================  ==================================================  ====================  ==========
+=========================  ==================================================  ====================  ====================
