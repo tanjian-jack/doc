@@ -54,12 +54,15 @@ def is_in_soc_family(soc, soc_family):
     return soc in soc_family.split(':')
 
 def is_compatible_machine(soc_family, compatible_machine_re):
-    socs = soc_family.split(':')
-    compatible_machine_pattern = re.compile(compatible_machine_re)
-    for soc in socs:
-        if compatible_machine_pattern.match(soc):
-            return True
-    return False
+    if compatible_machine_re:
+        socs = soc_family.split(':')
+        compatible_machine_pattern = re.compile(compatible_machine_re)
+        for soc in socs:
+            if compatible_machine_pattern.match(soc):
+                return True
+        return False
+    else:
+        return True
 
 def format_version(version):
     version = str(version)
