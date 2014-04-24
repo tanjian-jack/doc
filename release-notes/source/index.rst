@@ -16,8 +16,7 @@ FSL Community BSP Release Notes
    machines-maintainers
    soc-family
    kernel-linux
-   u-boot
-   barebox
+   bootloaders
    userspace-pkg
    fsl-userspace-pkg
    test-results
