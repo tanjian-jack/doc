@@ -91,6 +91,11 @@ for machine in $machines; do
         xf86-dri-vivante \
         xf86-video-imxfb \
         xf86-video-imxfb-vivante
+    ret=$?
+    if [ "$ret" != "0" ]; then
+        echo "ERROR: error extracting bitbake metadata for board $MACHINE"
+        exit 1
+    fi
 done
 
 cd $anchor
