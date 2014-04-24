@@ -106,6 +106,31 @@ def write_linux_default(data, out_dir):
                           ['Board', 'Kernel Provider', 'Kernel Version'],
                           data)
 
+
+def write_bootloader_default(data, out_dir):
+    boards_bloaders = {}
+    for  board, board_data in data.items():
+        image_bootloader = board_data['image-bootloader']
+        if image_bootloader:
+            boards_bloaders[board] = (image_bootloader, board_data['recipes'][image_bootloader]['version'])
+        elif board_data['recipes'].has_key('u-boot'):
+            bootloader = board_data['recipes']['u-boot']
+            boards_bloaders[board] = (bootloader['recipe'], bootloader['version'])
+        elif board_data['recipes'].has_key('virtual/bootloader'):
+            bootloader = board_data['recipes']['virtual/bootloader']
+            boards_bloaders[board] = (bootloader['recipe'], bootloader['version'])
+        else:
+            error('No bootloader for %s' % (board,))
+            sys.exit(1)
+
+    body = []
+    for board, bootloader in boards_bloaders.items():
+        body.append([board, bootloader[0], bootloader[1]])
+    write_tabular(out_dir,
+                  'bootloader-default.inc',
+                  ['Board', 'Bootloader', 'Bootloader version'],
+                  body)
+
 def write_u_boot_default(data, out_dir):
     ## Pick only boards whose bootloader is U-Boot
     uboot_data = {}
@@ -148,6 +173,21 @@ def write_fsl_community_bsp_supported_kernels(data, out_dir):
             kernel_recipes.append(recipe)
     write_inc_file(out_dir, 'fsl-community-bsp-supported-kernels.inc', describe(kernels))
 
+def write_fsl_community_bsp_supported_bootloaders_descr(data, out_dir):
+    bootloaders = []
+    bootloader_recipes = [] # just to keep track of recipes already collected
+    for board, board_data in data.items():
+        for bootloader_software in ['u-boot', 'barebox']:
+            if board_data['recipes'].has_key(bootloader_software):
+                bootloader = board_data['recipes'][bootloader_software]
+                recipe = bootloader['recipe']
+                recipe_file = bootloader['file']
+                if (('/sources/meta-fsl-arm/' in recipe_file) or \
+                        ('/sources/meta-fsl-arm-extra/' in recipe_file)) and \
+                        recipe not in bootloader_recipes:
+                    bootloaders += [[recipe, bootloader['description']]]
+                    bootloader_recipes.append(recipe)
+    write_inc_file(out_dir, 'fsl-community-bsp-supported-bootloaders-descr.inc', describe(bootloaders))
 
 def write_userspace_pkg(data, out_dir):
     pkgs = {'gstreamer': [],
@@ -332,8 +372,9 @@ except:
         pass # if a directory already exists, it's ok
 
 write_linux_default(data, out_dir)
-write_u_boot_default(data, out_dir)
 write_barebox_mainline(data, out_dir)
 write_fsl_community_bsp_supported_kernels(data, out_dir)
+write_fsl_community_bsp_supported_bootloaders_descr(data, out_dir)
+write_bootloader_default(data, out_dir)
 write_userspace_pkg(data, out_dir)
 write_soc_pkg(data, out_dir)
