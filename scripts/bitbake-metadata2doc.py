@@ -242,16 +242,20 @@ def write_soc_pkg(data, out_dir):
         for soc, boards in socs.items():
             pkg_versions = {}
             for board in boards:
-                recipe = data[board]['recipes'][pkg]
-                compatible_machine = recipe['compatible-machine']
-                if not compatible_machine or \
-                   (compatible_machine and \
-                    is_compatible_machine(data[board]['soc-family'], compatible_machine)):
-                    pkg_versions[board] = recipe['version']
+                if pkg in data[board]['recipes'].keys():
+                    recipe = data[board]['recipes'][pkg]
+                    compatible_machine = recipe['compatible-machine']
+                    if compatible_machine is None:
+                        pkg_versions[board] = recipe['version']
+                    elif (compatible_machine and \
+                          is_compatible_machine(data[board]['soc-family'], compatible_machine)):
+                        pkg_versions[board] = recipe['version']
+                    else:
+                        #print recipe, board
+                        ## The package is not for that board
+                        pkg_versions[board] = -1
                 else:
-                    ## The package is not for that board
                     pkg_versions[board] = -1
-
             versions = pkg_versions.values()
             versions_histogram = {}
             for version in versions:
