@@ -46,7 +46,7 @@ def tabularize(lines, spacing=2):
 
 def describe(items):
     text = ''
-    for item in items:
+    for item in sorted(items):
         text += ''.join(['* ', '**', item[0], '**: ', item[1], '\n'])
     return text
 
