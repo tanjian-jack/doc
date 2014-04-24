@@ -140,8 +140,10 @@ def write_fsl_community_bsp_supported_kernels(data, out_dir):
     for board, board_data in data.items():
         kernel = board_data['recipes']['virtual/kernel']
         recipe = kernel['recipe']
-        if (kernel['layer'] in ['meta-fsl-arm', 'meta-fsl-arm-extra']) and \
-            recipe not in kernel_recipes:
+        recipe_file = kernel['file']
+        if (('/sources/meta-fsl-arm/' in recipe_file) or \
+                ('/sources/meta-fsl-arm-extra/' in recipe_file)) and \
+                recipe not in kernel_recipes:
             kernels += [[recipe, kernel['description']]]
             kernel_recipes.append(recipe)
     write_inc_file(out_dir, 'fsl-community-bsp-supported-kernels.inc', describe(kernels))
