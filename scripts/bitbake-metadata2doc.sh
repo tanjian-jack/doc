@@ -86,6 +86,7 @@ for machine in $machines; do
         virtual/kernel \
         virtual/bootloader \
         udev \
+        u-boot \
         xserver-xorg \
         xf86-dri-vivante \
         xf86-video-imxfb \
