@@ -1,171 +1,269 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 
-'''
-This script extracts metadata out of bitbake's cache and writes a file
-(doc-data.pckl, in Python's pickle format), so that it can be used by
-bitbake-metadata2doc.py.
+""" From https://github.com/kergoth/bb/blob/master/libexec/bbcmd.py """
 
-This script is not intended to be manually run by users -- it is
-called by bitbake-metadata2doc.sh, which runs it to extract data from
-the bitbake's cache for each machine.
-'''
-
+import argparse
+import contextlib
+import logging
 import os
 import sys
+import warnings
 
-def bitbake_path():
-    path = os.environ['PATH'].split(':')
-    for dir in path:
-        bitbake = os.path.join(dir, 'bitbake')
-        if os.path.exists(bitbake):
-            return bitbake
-    return None
+PATH = os.getenv('PATH').split(':')
+bitbake_paths = [os.path.join(path, '..', 'lib')
+                 for path in PATH if os.path.exists(os.path.join(path, 'bitbake'))]
+if not bitbake_paths:
+    raise ImportError("Unable to locate bitbake, please ensure PATH is set correctly.")
 
-def set_bb_lib_path():
-    bitbake = bitbake_path()
-    if bitbake:
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(bitbake)),
-                                        'lib'))
-    else:
-        sys.stderr.write('bitbake could not be found in $PATH.  Aborting.\n')
-        sys.exit(1)
+sys.path[0:0] = bitbake_paths
 
-set_bb_lib_path()
-
-
-import re
-import pickle
-import logging
-
+import bb.msg
 import bb.utils
+import bb.providers
 import bb.tinfoil
-import bb.cache
-from contextlib import closing
-from cStringIO import StringIO
-import bb.data
+from bb.cookerdata import CookerConfiguration, ConfigParameters
 
-class Recipe(object):
-    def __init__(self, f, name, ver, layer, ispref):
-        self.file = f
-        self.name = name
-        self.version = ver
-        self.layer = layer
-        self.is_preferred = ispref
 
-    def __repr__(self):
-        return "<Recipe file=%s, name=%s, version=%s, layer=%s, is_preferred=%s>" % (self.file, self.name, self.version, self.layer, self.is_preferred)
+class Terminate(BaseException):
+    pass
 
-def get_layer_name(layerdir):
-    return os.path.basename(layerdir.rstrip(os.sep))
 
-def get_file_layer(bbhandler, filename):
-    for layer, _, regex, _ in bbhandler.cooker.recipecache.bbfile_config_priorities:
-        if regex.match(filename):
-            for layerdir in (bbhandler.config_data.getVar('BBLAYERS', True) or "").split():
-                if regex.match(os.path.join(layerdir, 'test')) and re.match(layerdir, filename):
-                    return get_layer_name(layerdir)
-    return "?"
+class Tinfoil(bb.tinfoil.Tinfoil):
+    def __init__(self, output=sys.stdout):
+        # Needed to avoid deprecation warnings with python 2.6
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-def version_str(pe, pv, pr = None):
-    verstr = "%s" % pv
-    if pr:
-        verstr = "%s-%s" % (verstr, pr)
-    if pe:
-        verstr = "%s:%s" % (pe, verstr)
-    return verstr
+        # Set up logging
+        self.logger = logging.getLogger('BitBake')
+        if output is not None:
+            setup_log_handler(self.logger, output)
 
-def list_recipes(bbhandler, show_overlayed_only=False, show_same_ver_only=False, show_filenames=True, show_multi_provider_only=False):
-    pkg_pn = bbhandler.cooker.recipecache.pkg_pn
-    (latest_versions, preferred_versions) = bb.providers.findProviders(bbhandler.config_data, bbhandler.cooker.recipecache, pkg_pn)
-    allproviders = bb.providers.allProviders(bbhandler.cooker.recipecache)
+        self.config = self.config = CookerConfiguration()
+        configparams = bb.tinfoil.TinfoilConfigParameters(parse_only=True)
+        self.config.setConfigParameters(configparams)
+        self.config.setServerRegIdleCallback(self.register_idle_function)
+        self.cooker = bb.cooker.BBCooker(self.config)
+        self.config_data = self.cooker.data
+        bb.providers.logger.setLevel(logging.ERROR)
+        bb.taskdata.logger.setLevel(logging.CRITICAL)
+        self.cooker_data = None
+        self.taskdata = None
 
-    # Ensure we list skipped recipes
-    # We are largely guessing about PN, PV and the preferred version here,
-    # but we have no choice since skipped recipes are not fully parsed
-    skiplist = bbhandler.cooker.skiplist.keys()
-    skiplist.sort( key=lambda fileitem: bbhandler.cooker.collection.calc_bbfile_priority(fileitem) )
-    skiplist.reverse()
-    for fn in skiplist:
-        recipe_parts = os.path.splitext(os.path.basename(fn))[0].split('_')
-        p = recipe_parts[0]
-        if len(recipe_parts) > 1:
-            ver = (None, recipe_parts[1], None)
+        self.localdata = bb.data.createCopy(self.config_data)
+        self.localdata.finalize()
+        # TODO: why isn't expandKeys a method of DataSmart?
+        bb.data.expandKeys(self.localdata)
+
+
+    def prepare_taskdata(self, provided=None, rprovided=None):
+        self.cache_data = self.cooker.recipecache
+        if self.taskdata is None:
+            self.taskdata = bb.taskdata.TaskData(abort=False)
+
+        if provided:
+            self.add_provided(provided)
+
+        if rprovided:
+            self.add_rprovided(rprovided)
+
+    def add_rprovided(self, rprovided):
+        for item in rprovided:
+            self.taskdata.add_rprovider(self.localdata, self.cache_data, item)
+
+        self.taskdata.add_unresolved(self.localdata, self.cache_data)
+
+    def add_provided(self, provided):
+        if 'world' in provided:
+            if not self.cache_data.world_target:
+                self.cooker.buildWorldTargetList()
+            provided.remove('world')
+            provided.extend(self.cache_data.world_target)
+
+        if 'universe' in provided:
+            provided.remove('universe')
+            provided.extend(self.cache_data.universe_target)
+
+        for item in provided:
+            self.taskdata.add_provider(self.localdata, self.cache_data, item)
+
+        self.taskdata.add_unresolved(self.localdata, self.cache_data)
+
+    def rec_get_dependees(self, targetid, depth=0, seen=None):
+        if seen is None:
+            seen = set()
+
+        for dependee_fnid, dependee_id in self.get_dependees(targetid, seen):
+            yield dependee_id, depth
+
+            for _id, _depth in self.rec_get_dependees(dependee_id, depth+1, seen):
+                yield _id, _depth
+
+    def get_dependees(self, targetid, seen):
+        dep_fnids = self.taskdata.get_dependees(targetid)
+        for dep_fnid in dep_fnids:
+            if dep_fnid in seen:
+                continue
+            seen.add(dep_fnid)
+            for target in self.taskdata.build_targets:
+                if dep_fnid in self.taskdata.build_targets[target]:
+                    yield dep_fnid, target
+
+    def get_buildid(self, target):
+        if not self.taskdata.have_build_target(target):
+            if target in self.cooker.recipecache.ignored_dependencies:
+                return
+
+            reasons = self.taskdata.get_reasons(target)
+            if reasons:
+                self.logger.error("No buildable '%s' recipe found:\n%s", target, "\n".join(reasons))
+            else:
+                self.logger.error("No '%s' recipe found", target)
+            return
         else:
-            ver = (None, 'unknown', None)
-        allproviders[p].append((ver, fn))
-        if not p in pkg_pn:
-            pkg_pn[p] = 'dummy'
-            preferred_versions[p] = (ver, fn)
+            return self.taskdata.getbuild_id(target)
 
-    preffiles = []
-    items_listed = []
-    for p in sorted(pkg_pn):
-        if len(allproviders[p]) > 1 or not show_multi_provider_only:
-            pref = preferred_versions[p]
-            preffile = bb.cache.Cache.virtualfn2realfn(pref[1])[0]
-            if preffile not in preffiles:
-                preflayer = get_file_layer(bbhandler, preffile)
-                multilayer = False
-                same_ver = True
-                provs = []
-                for prov in allproviders[p]:
-                    provfile = bb.cache.Cache.virtualfn2realfn(prov[1])[0]
-                    provlayer = get_file_layer(bbhandler, provfile)
-                    provs.append((provfile, provlayer, prov[0]))
-                    if provlayer != preflayer:
-                        multilayer = True
-                    if prov[0] != pref[0]:
-                        same_ver = False
+    def target_filenames(self):
+        """Return the filenames of all of taskdata's targets"""
+        filenames = set()
 
-                if (multilayer or not show_overlayed_only) and (same_ver or not show_same_ver_only):
-                    items_listed.append(Recipe(preffile, p, version_str(pref[0][0], pref[0][1]), preflayer, True))
-                    #print_item(preffile, p, version_str(pref[0][0], pref[0][1]), preflayer, True)
-                    for (provfile, provlayer, provver) in provs:
-                        if provfile != preffile:
-                            items_listed.append(Recipe(provfile, p, version_str(provver[0], provver[1]), provlayer, False))
-                            #print_item(provfile, p, version_str(provver[0], provver[1]), provlayer, False)
-                    # Ensure we don't show two entries for BBCLASSEXTENDed recipes
-                    preffiles.append(preffile)
+        for targetid in self.taskdata.build_targets:
+            fnid = self.taskdata.build_targets[targetid][0]
+            fn = self.taskdata.fn_index[fnid]
+            filenames.add(fn)
 
-    return items_listed
+        for targetid in self.taskdata.run_targets:
+            fnid = self.taskdata.run_targets[targetid][0]
+            fn = self.taskdata.fn_index[fnid]
+            filenames.add(fn)
+
+        return filenames
+
+    def all_filenames(self):
+        return self.cooker.recipecache.file_checksums.keys()
+
+    def all_preferred_filenames(self):
+        """Return all the recipes we have cached, filtered by providers.
+
+        Unlike target_filenames, this doesn't operate against taskdata.
+        """
+        filenames = set()
+        excluded = set()
+        for provide, fns in self.cooker.recipecache.providers.iteritems():
+            eligible, foundUnique = bb.providers.filterProviders(fns, provide,
+                                                                 self.localdata,
+                                                                 self.cooker.recipecache)
+            preferred = eligible[0]
+            if len(fns) > 1:
+                # Excluding non-preferred providers in multiple-provider
+                # situations.
+                for fn in fns:
+                    if fn != preferred:
+                        excluded.add(fn)
+            filenames.add(preferred)
+
+        filenames -= excluded
+        return filenames
+
+    def provide_to_fn(self, provide):
+        """Return the preferred recipe for the specified provide"""
+        filenames = self.cooker.recipecache.providers[provide]
+        eligible, foundUnique = bb.providers.filterProviders(filenames, provide, self.localdata)
+        return eligible[0]
+
+    def build_target_to_fn(self, target):
+        """Given a target, prepare taskdata and return a filename"""
+        self.prepare_taskdata([target])
+        targetid = self.get_buildid(target)
+        if targetid is None:
+            return
+        fnid = self.taskdata.build_targets[targetid][0]
+        fn = self.taskdata.fn_index[fnid]
+        return fn
+
+    def parse_recipe_file(self, recipe_filename):
+        """Given a recipe filename, do a full parse of it"""
+        appends = self.cooker.collection.get_file_appends(recipe_filename)
+        try:
+            recipe_data = bb.cache.Cache.loadDataFull(recipe_filename,
+                                                      appends,
+                                                      self.config_data)
+        except Exception:
+            raise
+        return recipe_data
+
+    def parse_metadata(self, recipe=None):
+        """Return metadata, either global or for a particular recipe"""
+        if recipe:
+            self.prepare_taskdata([recipe])
+            filename = self.build_target_to_fn(recipe)
+            return self.parse_recipe_file(filename)
+        else:
+            return self.localdata
 
 
-def recipe_environment(bbhandler, buildfile):
-    ri = bb.cache.CoreRecipeInfo(buildfile, bbhandler.cooker.data)
-    fn = None
-    envdata = None
+class CompleteParser(argparse.ArgumentParser):
+    """Argument parser which handles '--complete' for completions"""
+    def __init__(self, *args, **kwargs):
+        self.complete_parser = argparse.ArgumentParser(add_help=False)
+        self.complete_parser.add_argument('--complete', action='store_true')
+        super(CompleteParser, self).__init__(*args, **kwargs)
 
-    # Parse the configuration here. We need to do it explicitly here since
-    # this showEnvironment() code path doesn't use the cache
-    bbhandler.cooker.parseConfiguration()
+    def parse_args(self, args=None, namespace=None):
+        parsed, remaining = self.complete_parser.parse_known_args(args)
+        if parsed.complete:
+            for action in self._actions:
+                for string in action.option_strings:
+                    print(string)
+        else:
+            return super(CompleteParser, self).parse_args(remaining, namespace)
 
-    fn, cls = bb.cache.Cache.virtualfn2realfn(buildfile)
-    fn = bbhandler.cooker.matchFile(fn)
-    fn = bb.cache.Cache.realfn2virtual(fn, cls)
 
+def iter_uniq(iterable):
+    """Yield unique elements of an iterable"""
+    seen = set()
+    for i in iterable:
+        if i not in seen:
+            seen.add(i)
+            yield i
+
+
+@contextlib.contextmanager
+def status(message, outfile=sys.stderr):
+    """Show the user what we're doing, and whether we succeed"""
+    outfile.write('{0}..'.format(message))
+    outfile.flush()
     try:
-        envdata = bb.cache.Cache.loadDataFull(fn, bbhandler.cooker.collection.get_file_appends(fn), bbhandler.cooker.data)
-    except Exception as e:
-        parselog.exception("Unable to read %s", fn)
+        yield
+    except KeyboardInterrupt:
+        outfile.write('.interrupted\n')
         raise
+    except Terminate:
+        outfile.write('.terminated\n')
+        raise
+    except BaseException:
+        outfile.write('.failed\n')
+        raise
+    outfile.write('.done\n')
 
-    # emit variables and shell functions
-    bb.data.update_data(envdata)
-    return envdata
+
+def setup_log_handler(logger, output=sys.stderr):
+    log_format = bb.msg.BBLogFormatter("%(levelname)s: %(message)s")
+    if output.isatty() and hasattr(log_format, 'enable_color'):
+        log_format.enable_color()
+    handler = logging.StreamHandler(output)
+    handler.setFormatter(log_format)
+
+    bb.msg.addDefaultlogFilter(handler)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
 
-def get_preferred_provider(bbhandler, virtual, machine, soc_family):
-    socs = []
-    if soc_family:
-        socs = list(reversed(soc_family.split(':')))
-    ## Check preferred provider for machine/soc specifics, taking into
-    ## account precedence
-    for specific in [machine] + socs:
-        pref_provider = bbhandler.config_data.getVar('PREFERRED_PROVIDER_%s_%s' % (virtual, specific), True)
-        if pref_provider:
-            return pref_provider
-    return bbhandler.config_data.getVar('PREFERRED_PROVIDER_%s' % (virtual,), True)
+def sigterm_exception(signum, stackframe):
+    raise Terminate()
 
+###### end of bbcmd
+
+import pickle
 
 def load_data(data_file):
     try:
@@ -181,54 +279,51 @@ def dump_data(data, data_file):
     pickle.dump(data, fd)
     fd.close()
 
-def format_machine_data(recipe, description, compatible_machine, srcbranch):
-    return {'recipe': recipe.name,
-            'file': recipe.file,
-            'version': recipe.version,
-            'description': description,
-            'layer': recipe.layer,
-            'compatible-machine': compatible_machine,
-            'srcbranch': srcbranch}
+def extract_bitbake_metadata(recipes):
+    # tinfoil sets up log output for the bitbake loggers, but bb uses
+    # a separate namespace at this time
+    setup_log_handler(logging.getLogger('bb'))
 
-def usage(exit_code=False):
-    print 'Usage: %s <recipe name> ...' % os.path.basename(sys.argv[0])
-    if exit_code:
-        sys.exit(exit_code)
+    tinfoil = Tinfoil(output=sys.stderr)
+    tinfoil.prepare(config_only=True)
 
+    tinfoil.parseRecipes()
 
-if '-h' in sys.argv or '-help' in sys.argv or '--help' in sys.argv:
-    usage(0)
+    data = {}
+
+    metadata = tinfoil.parse_metadata()
+    machine = metadata.getVar('MACHINE')
+    data['image-bootloader'] = metadata.getVar('IMAGE_BOOTLOADER')
+    data['soc-family'] = metadata.getVar('SOC_FAMILY')
+    data['recipes'] = {}
+
+    metadata = None
+    for recipe in recipes:
+        try:
+            metadata = tinfoil.parse_metadata(recipe)
+        except:
+            continue
+
+        data['recipes'][recipe] = {}
+        data['recipes'][recipe]['recipe'] = metadata.getVar('PN', True)
+        data['recipes'][recipe]['version'] = metadata.getVar('PV', True)
+        data['recipes'][recipe]['file'] = tinfoil.build_target_to_fn(recipe)
+        data['recipes'][recipe]['srcbranch'] = metadata.getVar('SRCBRANCH', True)
+        data['recipes'][recipe]['compatible-machine'] = metadata.getVar('COMPATIBLE_MACHINE', True)
+
+        description = metadata.getVar('DESCRIPTION', True)
+        if not description:
+            description = metadata.getVar('SUMMARY', True)
+        data['recipes'][recipe]['description'] = description
+
+    return {machine: data}
+
+logger = logging.getLogger('bb.dump')
 
 data_file = sys.argv[1]
 user_recipes = sys.argv[2:]
 
-logger = logging.getLogger('BitBake')
-bbhandler = bb.tinfoil.Tinfoil()
-bbhandler.prepare()
-available_recipes = list_recipes(bbhandler)
-machine = bbhandler.config_data.getVar('MACHINE', True)
-soc_family = bbhandler.config_data.getVar('SOC_FAMILY', True)
 data = load_data(data_file)
-
-for user_recipe in user_recipes:
-    recipe_name = None
-    if '/' in user_recipe:
-        recipe_name = get_preferred_provider(bbhandler, user_recipe, machine, soc_family)
-    else:
-        recipe_name = user_recipe
-    for recipe in available_recipes:
-        if recipe_name and recipe_name == recipe.name:
-            env = recipe_environment(bbhandler, recipe.file)
-            description = env.getVar('DESCRIPTION', True)
-            srcbranch = env.getVar('SRCBRANCH', True)
-            if not description:
-                description = env.getVar('SUMMARY', True)
-            if not data.has_key(machine):
-                data[machine] = {}
-                data[machine]['recipes'] = {}
-                data[machine]['soc-family'] = soc_family
-                data[machine]['image-bootloader'] = env.getVar('IMAGE_BOOTLOADER', True)
-            compatible_machine = env.getVar('COMPATIBLE_MACHINE', True)
-            data[machine]['recipes'][user_recipe] = format_machine_data(recipe, description, compatible_machine, srcbranch)
+data.update(extract_bitbake_metadata(user_recipes))
 
 dump_data(data, data_file)
