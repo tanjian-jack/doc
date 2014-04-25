@@ -99,4 +99,4 @@ for machine in $machines; do
 done
 
 cd $anchor
-python ./bitbake-metadata2doc.py $marshalled_data_file "../release-notes/source"
+python ./bitbake-metadata2doc.py $marshalled_data_file "../release-notes/source" "$yocto_dir"
