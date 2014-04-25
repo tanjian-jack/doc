@@ -1,10 +1,12 @@
 #! /usr/bin/env python
+# -*- encoding: utf-8 -*-
 
 import os
 import re
 import sys
 import pickle
 import subprocess
+import copy
 
 def info(fmt, *args):
     print(fmt % args)
@@ -389,6 +391,66 @@ def write_machines_list(data, out_dir, bsp_dir):
     fd.close
 
 
+def write_soc_tree(data, out_dir):
+    soc_families = []
+    for board, board_data in data.items():
+        soc_family = board_data['soc-family']
+        if soc_family not in soc_families:
+            soc_families.append(soc_family)
+
+    max_depth = 2
+    socs = map(lambda i: i[0][0:max_depth],
+               zip(map(lambda soc_family: soc_family.split(':'),
+                       soc_families)))
+
+    def indent(label, level, fd, last=False):
+        if level == 0:
+            padding = '  '
+        else:
+            padding = '  │'
+        if last:
+            corner = '└'
+        else:
+            corner = '├'
+        fd.write(padding + (' ' * 4 * level) + corner + '── ' + label + '\n')
+
+    def print_tree(tree, fd, level=0):
+        parents = sorted(tree.keys())
+        len_parents = len(parents)
+        for i, parent in enumerate(parents):
+            indent(parent, level, fd, i == len_parents -1)
+            children = tree[parent]
+            if children:
+                print_tree(children, fd, level + 1)
+
+    def dict_merge(a, b):
+        if not isinstance(b, dict):
+            return b
+        result = copy.deepcopy(a)
+        for k, v in b.iteritems():
+            if k in result and isinstance(result[k], dict):
+                    result[k] = dict_merge(result[k], v)
+            else:
+                result[k] = copy.deepcopy(v)
+        return result
+
+    def socs2dict(socs):
+        tree = {}
+        for branch in socs:
+            tmp = {}
+            reduce(lambda d, key: d.setdefault(key, {}), branch, tmp)
+            tree = dict_merge(tree, tmp)
+        return tree
+
+    out_file = os.path.join(out_dir, 'soc-tree.inc')
+    info('Writing %s' % out_file)
+    fd = open(out_file, 'w')
+    fd.write('.. code-block:: none\n\n')
+    fd.write('  SOC_FAMILY\n')
+    print_tree(socs2dict(socs), fd)
+    fd.close()
+
+
 def usage(exit_code=None):
     print 'Usage: %s <data file> <output dir>' % (os.path.basename(sys.argv[0]),)
     if exit_code:
@@ -427,3 +489,4 @@ write_userspace_pkg(data, out_dir)
 write_soc_pkg(data, out_dir)
 write_maintainers_tables(data, out_dir, bsp_dir)
 write_machines_list(data, out_dir, bsp_dir)
+write_soc_tree(data, out_dir)
