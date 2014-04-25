@@ -355,14 +355,14 @@ def write_maintainers_tables(data, out_dir, bsp_dir):
         if len_cols == 2:
             not_maintained.append(columns)
         elif len_cols == 3:
-            maintained.append(columns)
+            maintained.append(columns[0:2])
         else:
             error('write_maintainers_tables: unexpected get-maintainers output format.')
 
     ## Write the maintained boards file
     write_tabular(out_dir,
                   'machines-with-maintainers.inc',
-                  ['Machine', 'Name', 'Maintainer'],
+                  ['Machine', 'Name'],
                   maintained)
 
     ## Write the unmaintained boards file
