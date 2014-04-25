@@ -56,8 +56,8 @@ for machine in $machines; do
     cd $yocto_dir
     MACHINE=$machine . ./setup-environment build
 
-    python $anchor/extract-bitbake-metadata.py \
-        $anchor/doc-data.pckl \
+    MACHINE=$machine python $anchor/extract-bitbake-metadata.py \
+        $anchor/$marshalled_data_file \
         amd-gpu-bin-mx51 \
         amd-gpu-x11-bin-mx51 \
         barebox \
