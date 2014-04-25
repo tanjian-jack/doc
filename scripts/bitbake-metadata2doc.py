@@ -388,7 +388,7 @@ def write_machines_list(data, out_dir, bsp_dir):
     info('Writing %s' % out_file)
     fd = open(out_file, 'w')
     fd.write(out)
-    fd.close
+    fd.close()
 
 
 def write_soc_tree(data, out_dir):
