@@ -67,7 +67,9 @@ def is_compatible_machine(soc_family, compatible_machine_re):
 def format_version(version):
     version = str(version)
     if 'gitAUTOINC' in version:
-        return 'git'
+        version_pattern = re.compile('(.*)gitAUTOINC.*')
+        version_number = version_pattern.match(version).groups()[0]
+        return version_number + 'git'
     else:
         ## remove <x> in case versions are in the <x>:<y> format
         comma_prefix = re.compile('\\d+:(.*)')
@@ -92,10 +94,7 @@ def write_table_by_recipe(out_dir, file, recipe, header, data):
     body = []
     for board in data.keys():
         recipe_data = data[board]['recipes'][recipe]
-        version = recipe_data['version']
-        srcbranch = recipe_data['srcbranch']
-        if srcbranch:
-            version += '_' + srcbranch
+        version = format_version(recipe_data['version'])
         body += [[board, recipe_data['recipe'], version]]
     write_tabular(out_dir, file, header, body)
 
@@ -125,7 +124,7 @@ def write_bootloader_default(data, out_dir):
 
     body = []
     for board, bootloader in boards_bloaders.items():
-        body.append([board, bootloader[0], bootloader[1]])
+        body.append([board, bootloader[0], format_version(bootloader[1])])
     write_tabular(out_dir,
                   'bootloader-default.inc',
                   ['Board', 'Bootloader', 'Bootloader version'],
