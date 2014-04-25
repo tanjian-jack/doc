@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import pickle
+import subprocess
 
 def info(fmt, *args):
     print(fmt % args)
@@ -327,6 +328,47 @@ def write_soc_pkg(data, out_dir):
                   body)
 
 
+def write_maintainers_tables(data, out_dir, bsp_dir):
+    meta_fsl_arm_machines_dir = os.path.join(bsp_dir, 'sources', 'meta-fsl-arm', 'conf', 'machine')
+    meta_fsl_arm_extra_machines_dir = os.path.join(bsp_dir, 'sources', 'meta-fsl-arm-extra', 'conf', 'machine')
+    get_maintainer_script = os.path.join(bsp_dir, 'sources', 'meta-fsl-arm', 'scripts', 'get-maintainer')
+    try:
+        get_maintainer_pipe = subprocess.Popen([get_maintainer_script,
+                                                '--dump',
+                                                meta_fsl_arm_machines_dir,
+                                                meta_fsl_arm_extra_machines_dir],
+                                               stdout=subprocess.PIPE)
+    except OSError:
+        error('Could not run the get-maintainer script (attempted %s)' % (get_maintainer_script,))
+        sys.exit(1)
+
+    get_maintainer_output, err = get_maintainer_pipe.communicate()
+    maintained = []
+    not_maintained = []
+    for line in get_maintainer_output.split('\n'):
+        if line == '':
+            continue
+        columns = line.split('\t')
+        len_cols = len(columns)
+        if len_cols == 2:
+            not_maintained.append(columns)
+        elif len_cols == 3:
+            maintained.append(columns)
+        else:
+            error('write_maintainers_tables: unexpected get-maintainers output format.')
+
+    ## Write the maintained boards file
+    write_tabular(out_dir,
+                  'machines-with-maintainers.inc',
+                  ['Machine', 'Name', 'Maintainer'],
+                  maintained)
+
+    ## Write the unmaintained boards file
+    write_tabular(out_dir,
+                  'machines-without-maintainers.inc',
+                  ['Machine', 'Name'],
+                  not_maintained)
+
 
 def usage(exit_code=None):
     print 'Usage: %s <data file> <output dir>' % (os.path.basename(sys.argv[0]),)
@@ -342,6 +384,7 @@ if len(sys.argv) < 2:
 
 data_file = sys.argv[1]
 out_dir = sys.argv[2]
+bsp_dir = sys.argv[3]
 
 data_fd = open(data_file, 'r')
 data = pickle.load(data_fd)
@@ -363,3 +406,4 @@ write_fsl_community_bsp_supported_bootloaders_descr(data, out_dir)
 write_bootloader_default(data, out_dir)
 write_userspace_pkg(data, out_dir)
 write_soc_pkg(data, out_dir)
+write_maintainers_tables(data, out_dir, bsp_dir)
