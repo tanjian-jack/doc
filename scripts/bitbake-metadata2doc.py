@@ -370,6 +370,25 @@ def write_maintainers_tables(data, out_dir, bsp_dir):
                   not_maintained)
 
 
+def write_machines_list(data, out_dir, bsp_dir):
+    output_machine_list_script = './output-machine-list'
+    try:
+        output_machine_list_pipe = subprocess.Popen([output_machine_list_script,
+                                                     bsp_dir,
+                                                     'tabularize'],
+                                                    stdout=subprocess.PIPE)
+    except OSError:
+        error('Could not run the output-machine-list script (attempted %s)' % (output_machine_list_script,))
+        sys.exit(1)
+
+    out, err = output_machine_list_pipe.communicate()
+    out_file = os.path.join(out_dir, 'machine-list.inc')
+    info('Writing %s' % out_file)
+    fd = open(out_file, 'w')
+    fd.write(out)
+    fd.close
+
+
 def usage(exit_code=None):
     print 'Usage: %s <data file> <output dir>' % (os.path.basename(sys.argv[0]),)
     if exit_code:
@@ -407,3 +426,4 @@ write_bootloader_default(data, out_dir)
 write_userspace_pkg(data, out_dir)
 write_soc_pkg(data, out_dir)
 write_maintainers_tables(data, out_dir, bsp_dir)
+write_machines_list(data, out_dir, bsp_dir)
