@@ -452,7 +452,7 @@ def write_soc_tree(data, out_dir):
 
 
 def usage(exit_code=None):
-    print 'Usage: %s <data file> <output dir>' % (os.path.basename(sys.argv[0]),)
+    print 'Usage: %s <data file> <output dir> <bsp dir>' % (os.path.basename(sys.argv[0]),)
     if exit_code:
         sys.exit(exit_code)
 
