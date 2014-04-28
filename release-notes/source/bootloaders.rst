@@ -1,5 +1,5 @@
-Bootloaders
-============
+Default Bootloader Providers
+============================
 
 Fsl-community-bsp supports barebox and u-boot as bootloaders.
 
