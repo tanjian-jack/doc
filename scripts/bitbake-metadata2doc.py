@@ -133,20 +133,6 @@ def write_bootloader_default(data, out_dir):
                   ['Board', 'Bootloader', 'Bootloader version'],
                   body)
 
-def write_barebox_mainline(data, out_dir):
-    boards = filter(lambda board: data[board]['recipes'].has_key('barebox') and \
-                                  (data[board]['image-bootloader'] == 'barebox' or \
-                                   data[board]['recipes']['virtual/bootloader']['recipe'] == 'barebox'),
-                    data.keys())
-    boards_data = {}
-    for board in boards:
-        boards_data[board] = data[board]
-    write_table_by_recipe(out_dir,
-                          'barebox-mainline.inc',
-                          'barebox',
-                          ['Board', 'Barebox Provider', 'Barebox Version'],
-                          boards_data)
-
 def write_fsl_community_bsp_supported_kernels(data, out_dir):
     kernels = []
     kernel_recipes = [] # just to keep track of recipes already collected
@@ -481,7 +467,6 @@ except:
         pass # if a directory already exists, it's ok
 
 write_linux_default(data, out_dir)
-write_barebox_mainline(data, out_dir)
 write_fsl_community_bsp_supported_kernels(data, out_dir)
 write_fsl_community_bsp_supported_bootloaders_descr(data, out_dir)
 write_bootloader_default(data, out_dir)
