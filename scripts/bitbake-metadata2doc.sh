@@ -27,18 +27,21 @@ usage() {
     else
         output=1
     fi
-    echo "Usage: `basename $0` <yocto directory>" >&$output
+    echo "Usage: `basename $0` <yocto directory> <gitdm directory> <start commit> <end commit>" >&$output
     [ -n "$exit_code" ] && exit $exit_code
 }
 
 
-[ -z "$1" ] && usage 1
+[ -z "$4" ] && usage 1
 
 if [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--help" ]; then
     usage 0
 fi
 
 yocto_dir="$1"
+gitdm_dir="$2"
+start_commit="$3"
+end_commit="$4"
 anchor="`pwd`"
 
 machines=
@@ -99,4 +102,4 @@ for machine in $machines; do
 done
 
 cd $anchor
-python ./bitbake-metadata2doc.py $marshalled_data_file "../release-notes/source" "$yocto_dir"
+python ./bitbake-metadata2doc.py $marshalled_data_file "../release-notes/source" "$yocto_dir" "$gitdm_dir" "$start_commit" "$end_commit"

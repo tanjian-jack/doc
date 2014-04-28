@@ -7,6 +7,7 @@ import sys
 import pickle
 import subprocess
 import copy
+import shutil
 
 def info(fmt, *args):
     print(fmt % args)
@@ -436,9 +437,30 @@ def write_soc_tree(data, out_dir):
     print_tree(socs2dict(socs), fd)
     fd.close()
 
+def write_acknowledgements(out_dir, bsp_dir, gitdm_dir, start_commit, end_commit):
+    meta_freescale_dir = os.path.join(gitdm_dir, 'meta-freescale')
+    gen_statistics_script = os.path.join(meta_freescale_dir, 'gen-statistics')
+    anchor = os.getcwd()
+    try:
+        os.chdir(meta_freescale_dir)
+        subprocess.call([gen_statistics_script,
+                         bsp_dir,
+                         start_commit,
+                         end_commit],
+                        stdout=subprocess.PIPE)
+        os.chdir(anchor)
+    except OSError:
+        error('Could not run the gen-statistics script (attempted %s)' % (gen_statistics_script,))
+        sys.exit(1)
+
+    out_file = os.path.join(out_dir, 'ack-sourcers.inc')
+    info('Writing %s' % out_file)
+    shutil.copyfile(os.path.join(meta_freescale_dir, 'results.all.txt'),
+                    out_file)
+
 
 def usage(exit_code=None):
-    print 'Usage: %s <data file> <output dir> <bsp dir>' % (os.path.basename(sys.argv[0]),)
+    print 'Usage: %s <data file> <output dir> <bsp dir> <gitdb dir> <start commit> <end commit>' % (os.path.basename(sys.argv[0]),)
     if exit_code:
         sys.exit(exit_code)
 
@@ -446,12 +468,15 @@ def usage(exit_code=None):
 if '-h' in sys.argv or '-help' in sys.argv or '--help' in sys.argv:
     usage(0)
 
-if len(sys.argv) < 2:
+if len(sys.argv) < 6:
     usage(1)
 
 data_file = sys.argv[1]
 out_dir = sys.argv[2]
 bsp_dir = sys.argv[3]
+gitdm_dir = sys.argv[4]
+start_commit = sys.argv[5]
+end_commit = sys.argv[6]
 
 data_fd = open(data_file, 'r')
 data = pickle.load(data_fd)
@@ -475,3 +500,4 @@ write_soc_pkg(data, out_dir)
 write_maintainers_tables(data, out_dir, bsp_dir)
 write_machines_list(data, out_dir, bsp_dir)
 write_soc_tree(data, out_dir)
+write_acknowledgements(out_dir, bsp_dir, gitdm_dir, start_commit, end_commit)
