@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 
 ### This script generates documentation based on metadata extracted
 ### out of BitBake's cache data.
