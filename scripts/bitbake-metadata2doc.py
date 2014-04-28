@@ -434,7 +434,7 @@ def write_soc_tree(data, out_dir):
     info('Writing %s' % out_file)
     fd = open(out_file, 'w')
     fd.write('.. code-block:: none\n\n')
-    fd.write('  SOC_FAMILY\n')
+    fd.write('  SoCs\n')
     print_tree(socs2dict(socs), fd)
     fd.close()
 
