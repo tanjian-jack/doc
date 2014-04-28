@@ -206,7 +206,8 @@ def write_userspace_pkg(data, out_dir):
 def write_soc_pkg(data, out_dir):
     socs = {'mx28': [],
             'mx5': [],
-            'mx6': [],
+            'mx6sl': [],
+            'mx6dl': [],
             'vf60': []}
     pkgs = ['imx-test',
             'gst-fsl-plugin',
@@ -313,7 +314,7 @@ def write_soc_pkg(data, out_dir):
     ## Finally write the table
     write_tabular(out_dir,
                   'soc-pkg.inc',
-                  ['Package name'] + soc_names,
+                  ['Package name'] + map(lambda soc: 'mx6q / mx6dl' if soc == 'mx6dl' else soc,  soc_names),
                   body)
 
 
