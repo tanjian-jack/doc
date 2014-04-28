@@ -254,49 +254,49 @@ def write_soc_pkg(data, out_dir):
     pkgs_socs_versions = {}
     for pkg in pkgs:
         for soc, boards in socs.items():
-            pkg_versions = {}
-            for board in boards:
-                if pkg in data[board]['recipes'].keys():
-                    recipe = data[board]['recipes'][pkg]
-                    compatible_machine = recipe['compatible-machine']
-                    if compatible_machine is None:
-                        pkg_versions[board] = recipe['version']
-                    elif (compatible_machine and \
-                          is_compatible_machine(data[board]['soc-family'], compatible_machine)):
-                        pkg_versions[board] = recipe['version']
+            if boards:
+                pkg_versions = {}
+                for board in boards:
+                    if pkg in data[board]['recipes'].keys():
+                        recipe = data[board]['recipes'][pkg]
+                        compatible_machine = recipe['compatible-machine']
+                        if compatible_machine is None:
+                            pkg_versions[board] = recipe['version']
+                        elif (compatible_machine and \
+                              is_compatible_machine(data[board]['soc-family'], compatible_machine)):
+                            pkg_versions[board] = recipe['version']
+                        else:
+                            ## The package is not for that board
+                            pkg_versions[board] = -1
                     else:
-                        #print recipe, board
-                        ## The package is not for that board
                         pkg_versions[board] = -1
+                versions = pkg_versions.values()
+                versions_histogram = {}
+                for version in versions:
+                    if versions_histogram.has_key(version):
+                        versions_histogram[version] += 1
+                    else:
+                        versions_histogram[version] = 1
+                versions_freq = versions_histogram.values()
+                most_freq = max(versions_freq)
+                ## More than one "most frequent" version?
+                if versions_freq.count(most_freq) > 1:
+                    error('The most frequent versions (%s) for %s are equally distributed among boards of SoC %s.  Cannot determine which one to use.' % \
+                              ([ ver for ver, count in versions_histogram.items() if count == most_freq ],
+                               pkg,
+                               soc))
+                    sys.exit(1)
                 else:
-                    pkg_versions[board] = -1
-            versions = pkg_versions.values()
-            versions_histogram = {}
-            for version in versions:
-                if versions_histogram.has_key(version):
-                    versions_histogram[version] += 1
-                else:
-                    versions_histogram[version] = 1
-            versions_freq = versions_histogram.values()
-            most_freq = max(versions_freq)
-            ## More than one "most frequent" version?
-            if versions_freq.count(most_freq) > 1:
-                error('The most frequent versions (%s) for %s are equally distributed among boards of SoC %s.  Cannot determine which one to use.' % \
-                          ([ ver for ver, count in versions_histogram.items() if count == most_freq ],
-                           pkg,
-                           soc))
-                sys.exit(1)
-            else:
-                pkg_version = None
-                for version, count in versions_histogram.items():
-                    if count == most_freq:
-                        pkg_version = version
-                        break
-                pkgs_socs_versions[(pkg, soc)] = pkg_version
+                    pkg_version = None
+                    for version, count in versions_histogram.items():
+                        if count == most_freq:
+                            pkg_version = version
+                            break
+                    pkgs_socs_versions[(pkg, soc)] = pkg_version
 
     ## Build up the table body
     body = []
-    soc_names = sorted(socs.keys())
+    soc_names = filter(lambda soc: socs[soc], sorted(socs.keys()))
     for pkg in pkgs:
         versions = [ pkgs_socs_versions[(pkg, soc)] for soc in soc_names ]
         def replace_noversions(versions):
